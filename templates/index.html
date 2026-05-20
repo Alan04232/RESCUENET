@@ -1,0 +1,850 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🛡️ Disaster Risk Map - Real-Time Monitoring</title>
+    
+    <!-- Leaflet Map Library (FREE) -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+    
+    <!-- Leaflet Heatmap (FREE) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet-heat/0.2.0/leaflet-heat.js"></script>
+    
+    <!-- Chart.js for graphs -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
+    
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #f5f5f5;
+        }
+
+        .container {
+            display: grid;
+            grid-template-columns: 1fr 400px;
+            height: 100vh;
+            gap: 0;
+        }
+
+        /* MAP SECTION */
+        #map {
+            width: 100%;
+            height: 100vh;
+            background: #ddd;
+        }
+
+        /* SIDEBAR */
+        .sidebar {
+            background: white;
+            border-left: 1px solid #ddd;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .sidebar-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            text-align: center;
+            border-bottom: 2px solid #667eea;
+        }
+
+        .sidebar-header h2 {
+            font-size: 1.3em;
+            margin-bottom: 5px;
+        }
+
+        .sidebar-content {
+            flex: 1;
+            overflow-y: auto;
+            padding: 15px;
+        }
+
+        /* STATUS CARDS */
+        .status-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        .status-card {
+            background: #f9f9f9;
+            padding: 15px;
+            border-radius: 8px;
+            text-align: center;
+            border-left: 4px solid #667eea;
+        }
+
+        .status-card.danger {
+            border-left-color: #ff4444;
+        }
+
+        .status-card.warning {
+            border-left-color: #ffaa00;
+        }
+
+        .status-card.safe {
+            border-left-color: #00aa00;
+        }
+
+        .status-label {
+            font-size: 0.8em;
+            color: #666;
+            margin-bottom: 5px;
+        }
+
+        .status-value {
+            font-size: 1.8em;
+            font-weight: bold;
+            color: #333;
+        }
+
+        /* NODE LIST */
+        .nodes-section {
+            margin-bottom: 20px;
+        }
+
+        .nodes-section h3 {
+            color: #333;
+            font-size: 1.1em;
+            margin-bottom: 10px;
+            padding-bottom: 8px;
+            border-bottom: 2px solid #eee;
+        }
+
+        .node-item {
+            background: white;
+            border: 1px solid #eee;
+            border-radius: 8px;
+            padding: 12px;
+            margin-bottom: 10px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .node-item:hover {
+            border-color: #667eea;
+            box-shadow: 0 2px 8px rgba(102, 126, 234, 0.2);
+        }
+
+        .node-item.selected {
+            border-color: #667eea;
+            background: #f0f4ff;
+        }
+
+        .node-name {
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 8px;
+        }
+
+        .node-info {
+            font-size: 0.85em;
+            color: #666;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 5px;
+        }
+
+        .node-info-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 3px 0;
+        }
+
+        .node-info-label {
+            color: #999;
+        }
+
+        .node-info-value {
+            font-weight: 600;
+            color: #333;
+        }
+
+        /* RISK INDICATOR */
+        .risk-section {
+            margin-top: 15px;
+            padding: 15px;
+            background: #f9f9f9;
+            border-radius: 8px;
+            border-left: 4px solid #667eea;
+        }
+
+        .risk-title {
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 10px;
+        }
+
+        .risk-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 0;
+            border-bottom: 1px solid #eee;
+        }
+
+        .risk-item:last-child {
+            border-bottom: none;
+        }
+
+        .risk-label {
+            font-size: 0.9em;
+            color: #666;
+        }
+
+        .risk-value {
+            font-weight: bold;
+            font-size: 0.9em;
+            padding: 4px 10px;
+            border-radius: 4px;
+            background: white;
+        }
+
+        .risk-value.high {
+            background: #ffcccc;
+            color: #cc0000;
+        }
+
+        .risk-value.medium {
+            background: #ffffcc;
+            color: #ff8800;
+        }
+
+        .risk-value.low {
+            background: #ccffcc;
+            color: #008800;
+        }
+
+        .risk-value.danger {
+            background: #ff4444;
+            color: white;
+        }
+
+        .risk-value.warning {
+            background: #ffaa00;
+            color: white;
+        }
+
+        .risk-value.no {
+            background: #00aa00;
+            color: white;
+        }
+
+        /* FIRE DIRECTION */
+        .fire-direction {
+            text-align: center;
+            padding: 10px;
+            background: #fff3cd;
+            border-radius: 8px;
+            margin-top: 10px;
+        }
+
+        .fire-direction-label {
+            font-size: 0.85em;
+            color: #666;
+            margin-bottom: 5px;
+        }
+
+        .fire-direction-arrow {
+            font-size: 2em;
+            font-weight: bold;
+            color: #ff4444;
+        }
+
+        /* LEGEND */
+        .legend {
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            border: 1px solid #ddd;
+            margin-top: 15px;
+        }
+
+        .legend-title {
+            font-weight: bold;
+            margin-bottom: 10px;
+            color: #333;
+            font-size: 0.9em;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            margin-bottom: 8px;
+            font-size: 0.85em;
+        }
+
+        .legend-color {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            margin-right: 10px;
+            border: 2px solid #999;
+        }
+
+        /* REFRESH INDICATOR */
+        .refresh-indicator {
+            text-align: center;
+            padding: 10px;
+            font-size: 0.8em;
+            color: #999;
+            border-top: 1px solid #eee;
+            margin-top: auto;
+        }
+
+        .pulse {
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            background: #667eea;
+            border-radius: 50%;
+            margin-right: 5px;
+            animation: pulse 1.5s infinite;
+        }
+
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.5; }
+            100% { opacity: 1; }
+        }
+
+        /* MAP CONTROLS */
+        .map-controls {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+            z-index: 1000;
+        }
+
+        .map-controls button {
+            display: block;
+            width: 100%;
+            padding: 10px;
+            margin-bottom: 10px;
+            background: #667eea;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 0.9em;
+            transition: background 0.3s;
+        }
+
+        .map-controls button:hover {
+            background: #764ba2;
+        }
+
+        .map-controls button:last-child {
+            margin-bottom: 0;
+        }
+
+        /* ERROR MESSAGE */
+        .error-message {
+            background: #ffebee;
+            color: #c62828;
+            padding: 12px;
+            border-radius: 4px;
+            margin-bottom: 10px;
+            font-size: 0.85em;
+            border-left: 4px solid #c62828;
+        }
+
+        /* LOADING INDICATOR */
+        .loading {
+            text-align: center;
+            padding: 20px;
+            color: #999;
+        }
+
+        /* MOBILE RESPONSIVE */
+        @media (max-width: 1024px) {
+            .container {
+                grid-template-columns: 1fr;
+            }
+
+            .sidebar {
+                position: absolute;
+                right: 0;
+                top: 0;
+                width: 350px;
+                height: 100vh;
+                z-index: 999;
+                box-shadow: -2px 0 10px rgba(0,0,0,0.2);
+            }
+        }
+
+        /* DISASTER ZONE CIRCLE */
+        .disaster-zone {
+            border-radius: 50%;
+            opacity: 0.4;
+        }
+
+        .disaster-zone.safe {
+            background: rgba(0, 170, 0, 0.3);
+            border: 2px solid rgba(0, 170, 0, 0.8);
+        }
+
+        .disaster-zone.warning {
+            background: rgba(255, 170, 0, 0.3);
+            border: 2px solid rgba(255, 170, 0, 0.8);
+        }
+
+        .disaster-zone.danger {
+            background: rgba(255, 68, 68, 0.3);
+            border: 2px solid rgba(255, 68, 68, 0.8);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- MAP SECTION -->
+        <div id="map"></div>
+
+        <!-- SIDEBAR -->
+        <div class="sidebar">
+            <div class="sidebar-header">
+                <h2>🛡️ Risk Monitor</h2>
+                <p style="font-size: 0.9em; opacity: 0.9;">Real-time Disaster Map</p>
+            </div>
+
+            <div class="sidebar-content">
+                <!-- STATUS OVERVIEW -->
+                <div class="status-grid">
+                    <div class="status-card safe">
+                        <div class="status-label">Safe Zones</div>
+                        <div class="status-value" id="safe-count">0</div>
+                    </div>
+                    <div class="status-card warning">
+                        <div class="status-label">Caution Zones</div>
+                        <div class="status-value" id="caution-count">0</div>
+                    </div>
+                    <div class="status-card danger">
+                        <div class="status-label">Danger Zones</div>
+                        <div class="status-value" id="danger-count">0</div>
+                    </div>
+                    <div class="status-card">
+                        <div class="status-label">Active Nodes</div>
+                        <div class="status-value" id="active-nodes">0</div>
+                    </div>
+                </div>
+
+                <!-- ERROR MESSAGE -->
+                <div id="error-container"></div>
+
+                <!-- NODES LIST -->
+                <div class="nodes-section">
+                    <h3>📍 Monitoring Stations</h3>
+                    <div id="nodes-list"></div>
+                </div>
+
+                <!-- LEGEND -->
+                <div class="legend">
+                    <div class="legend-title">Risk Level Legend</div>
+                    <div class="legend-item">
+                        <div class="legend-color" style="background: rgba(0, 170, 0, 0.6);"></div>
+                        <span>Safe (< 40%)</span>
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-color" style="background: rgba(255, 170, 0, 0.6);"></div>
+                        <span>Caution (40-75%)</span>
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-color" style="background: rgba(255, 68, 68, 0.6);"></div>
+                        <span>Danger (> 75%)</span>
+                    </div>
+                </div>
+
+                <div class="refresh-indicator">
+                    <span class="pulse"></span>
+                    Live Updates
+                    <div style="font-size: 0.75em; margin-top: 5px;">
+                        Last: <span id="last-update">--:--:--</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MAP CONTROLS -->
+    <div class="map-controls">
+        <button onclick="zoomToAll()">🔍 Fit All Nodes</button>
+        <button onclick="toggleHeatmap()">🔥 Toggle Heat</button>
+        <button onclick="refreshData()">🔄 Refresh</button>
+    </div>
+
+    <script>
+        // ═══════════════════════════════════════════════════════════════
+        // CONFIGURATION
+        // ═══════════════════════════════════════════════════════════════
+
+        const API_BASE = "http://localhost:5000";
+        const REFRESH_INTERVAL = 5000;  // 5 seconds
+
+        let dataUpdateCount = 0;
+        let lastErrorTime = 0;
+
+        // ═══════════════════════════════════════════════════════════════
+        // MAP INITIALIZATION
+        // ═══════════════════════════════════════════════════════════════
+
+        let map;
+        let nodeMarkers = {};
+        let disasterZones = {};
+        let heatmapLayer = null;
+        let heatmapVisible = false;
+
+        function initMap() {
+            // Initialize map centered on India (default)
+            map = L.map('map').setView([20, 78], 5);
+
+            // Add OpenStreetMap tiles
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '© OpenStreetMap contributors',
+                maxZoom: 19
+            }).addTo(map);
+
+            // Start data updates
+            updateData();
+            setInterval(updateData, REFRESH_INTERVAL);
+        }
+
+        // ═══════════════════════════════════════════════════════════════
+        // ERROR HANDLING
+        // ═══════════════════════════════════════════════════════════════
+
+        function showError(message) {
+            const container = document.getElementById('error-container');
+            
+            // Don't spam errors - show max once per 10 seconds
+            const now = Date.now();
+            if (now - lastErrorTime < 10000) return;
+            lastErrorTime = now;
+
+            container.innerHTML = `<div class="error-message">⚠️ ${message}</div>`;
+            
+            // Clear after 5 seconds
+            setTimeout(() => {
+                container.innerHTML = '';
+            }, 5000);
+        }
+
+        // ═══════════════════════════════════════════════════════════════
+        // DATA FETCHING
+        // ═══════════════════════════════════════════════════════════════
+
+        async function fetchPredictions() {
+            try {
+                const resp = await fetch(`${API_BASE}/api/predictions`);
+                if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+                const data = await resp.json();
+                console.log("✓ Predictions fetched:", Object.keys(data).length, "nodes");
+                return data;
+            } catch (e) {
+                console.error("Error fetching predictions:", e);
+                showError(`Cannot fetch predictions: ${e.message}`);
+                return {};
+            }
+        }
+
+        async function fetchLiveSensors() {
+            try {
+                const resp = await fetch(`${API_BASE}/api/live-sensors`);
+                if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+                const data = await resp.json();
+                console.log("✓ Live sensors fetched:", Object.keys(data).length, "nodes");
+                return data;
+            } catch (e) {
+                console.error("Error fetching sensors:", e);
+                showError(`Cannot fetch sensors: ${e.message}`);
+                return {};
+            }
+        }
+
+        // ═══════════════════════════════════════════════════════════════
+        // UPDATE DASHBOARD
+        // ═══════════════════════════════════════════════════════════════
+
+        async function updateData() {
+            const [predictions, sensors] = await Promise.all([
+                fetchPredictions(),
+                fetchLiveSensors()
+            ]);
+
+            dataUpdateCount++;
+            console.log(`\n[Update #${dataUpdateCount}] Predictions: ${Object.keys(predictions).length}, Sensors: ${Object.keys(sensors).length}`);
+
+            if (Object.keys(predictions).length === 0 && Object.keys(sensors).length === 0) {
+                showError("No data from server. Is the Flask app running? Check http://localhost:5000");
+            }
+
+            updateMap(predictions, sensors);
+            updateSidebar(predictions, sensors);
+            updateLegend(predictions);
+        }
+
+        // ═══════════════════════════════════════════════════════════════
+        // UPDATE MAP
+        // ═══════════════════════════════════════════════════════════════
+
+        function updateMap(predictions, sensors) {
+            const heatmapPoints = [];
+
+            for (const [nodeId, pred] of Object.entries(predictions)) {
+                const sensor = sensors[nodeId];
+                if (!sensor) {
+                    console.warn(`Prediction for node ${nodeId} but no sensor data`);
+                    continue;
+                }
+
+                // ✅ FIX: Use correct location fields (lat/lon, not latitude/longitude)
+                const lat = sensor.lat !== undefined ? sensor.lat : (10.02 + Math.random() * 0.5);
+                const lon = sensor.lon !== undefined ? sensor.lon : (76.30 + Math.random() * 0.5);
+
+                console.log(`Node ${nodeId}: lat=${lat}, lon=${lon}`);
+
+                // Determine risk level and color
+                const riskLevel = pred.region_safety.toLowerCase();
+                const riskColor = riskLevel === 'danger' ? '#ff4444' :
+                                riskLevel === 'caution' ? '#ffaa00' : '#00aa00';
+
+                const maxProbability = Math.max(
+                    pred.landslide.probability,
+                    pred.fire.probability
+                );
+
+                // Create popup content
+                const popupContent = `
+                    <div style="font-size: 12px; width: 220px;">
+                        <h4 style="margin: 0 0 10px 0;">${pred.node_name}</h4>
+                        
+                        <strong>🏔️ Landslide Risk:</strong>
+                        <div style="margin: 5px 0; padding: 5px; background: #f0f0f0; border-radius: 4px;">
+                            ${(pred.landslide.probability * 100).toFixed(1)}% - ${pred.landslide.risk}
+                        </div>
+                        
+                        <strong>🔥 Fire Risk:</strong>
+                        <div style="margin: 5px 0; padding: 5px; background: #f0f0f0; border-radius: 4px;">
+                            ${(pred.fire.probability * 100).toFixed(1)}% - ${pred.fire.risk}
+                        </div>
+                        
+                        <strong>Fire Direction:</strong> ${pred.fire.spread_direction} (${pred.fire.spread_degrees}°)
+                        
+                        <div style="margin-top: 10px; padding-top: 10px; border-top: 1px solid #ddd;">
+                            <strong>Current Sensors:</strong>
+                            <div style="font-size: 11px; margin-top: 5px;">
+                                <div>Soil: ${sensor.soil_moisture}%</div>
+                                <div>Vibration: ${sensor.vibration.max.toFixed(4)}g</div>
+                                <div>Flame: ${sensor.flame_detected ? '🔥 YES' : '✓ NO'}</div>
+                            </div>
+                        </div>
+                        
+                        <div style="margin-top: 10px; padding: 8px; background: ${riskColor}; color: white; border-radius: 4px; text-align: center; font-weight: bold;">
+                            Region: ${pred.region_safety}
+                        </div>
+                    </div>
+                `;
+
+                // Create or update marker
+                if (nodeMarkers[nodeId]) {
+                    nodeMarkers[nodeId].setLatLng([lat, lon]);
+                    nodeMarkers[nodeId].setPopupContent(popupContent);
+                } else {
+                    const marker = L.circleMarker([lat, lon], {
+                        radius: 12,
+                        fillColor: riskColor,
+                        color: riskColor,
+                        weight: 2,
+                        opacity: 1,
+                        fillOpacity: 0.8
+                    }).addTo(map);
+
+                    marker.bindPopup(popupContent);
+                    marker.on('click', () => selectNode(nodeId));
+                    nodeMarkers[nodeId] = marker;
+                }
+
+                // Create or update disaster zone (circle showing affected area)
+                const radiusKm = 5 + (maxProbability * 10);
+
+                if (disasterZones[nodeId]) {
+                    disasterZones[nodeId].setLatLng([lat, lon]);
+                    disasterZones[nodeId].setRadius(radiusKm * 111);
+                    disasterZones[nodeId].setStyle({
+                        fillColor: riskColor,
+                        color: riskColor
+                    });
+                } else {
+                    const zone = L.circle([lat, lon], {
+                        radius: radiusKm * 111,
+                        fillColor: riskColor,
+                        color: riskColor,
+                        weight: 2,
+                        opacity: 0.5,
+                        fillOpacity: 0.2
+                    }).addTo(map);
+
+                    disasterZones[nodeId] = zone;
+                }
+
+                // Add to heatmap
+                heatmapPoints.push([lat, lon, maxProbability]);
+            }
+
+            // Update heatmap
+            if (heatmapVisible && heatmapPoints.length > 0) {
+                if (heatmapLayer) {
+                    map.removeLayer(heatmapLayer);
+                }
+                heatmapLayer = L.heatLayer(heatmapPoints, {
+                    radius: 40,
+                    blur: 25,
+                    maxZoom: 17,
+                    minOpacity: 0.2
+                }).addTo(map);
+            }
+        }
+
+        // ═══════════════════════════════════════════════════════════════
+        // UPDATE SIDEBAR
+        // ═══════════════════════════════════════════════════════════════
+
+        function updateSidebar(predictions, sensors) {
+            // Update counts
+            let safeCount = 0, cautionCount = 0, dangerCount = 0;
+
+            const nodesList = document.getElementById('nodes-list');
+            nodesList.innerHTML = '';
+
+            for (const [nodeId, pred] of Object.entries(predictions)) {
+                const sensor = sensors[nodeId];
+                if (!sensor) continue;
+
+                // Count by safety
+                if (pred.region_safety === 'SAFE') safeCount++;
+                else if (pred.region_safety === 'CAUTION') cautionCount++;
+                else dangerCount++;
+
+                // Create node item
+                const nodeDiv = document.createElement('div');
+                nodeDiv.className = 'node-item';
+                nodeDiv.onclick = () => selectNode(nodeId);
+
+                const riskColor = pred.region_safety === 'DANGER' ? '#ff4444' :
+                                pred.region_safety === 'CAUTION' ? '#ffaa00' : '#00aa00';
+
+                nodeDiv.innerHTML = `
+                    <div class="node-name" style="color: ${riskColor};">
+                        📍 ${pred.node_name}
+                    </div>
+                    <div class="node-info">
+                        <div class="node-info-item">
+                            <span class="node-info-label">Soil:</span>
+                            <span class="node-info-value">${sensor.soil_moisture}%</span>
+                        </div>
+                        <div class="node-info-item">
+                            <span class="node-info-label">Vibration:</span>
+                            <span class="node-info-value">${sensor.vibration.max.toFixed(3)}g</span>
+                        </div>
+                    </div>
+                    <div class="risk-section" style="margin-top: 10px; margin-left: -15px; margin-right: -15px; margin-bottom: -12px; padding: 12px 15px;">
+                        <div class="risk-item">
+                            <span class="risk-label">🏔️ Landslide:</span>
+                            <span class="risk-value ${pred.landslide.risk.toLowerCase()}">
+                                ${(pred.landslide.probability * 100).toFixed(0)}%
+                            </span>
+                        </div>
+                        <div class="risk-item">
+                            <span class="risk-label">🔥 Fire:</span>
+                            <span class="risk-value ${pred.fire.risk.toLowerCase() === 'no' ? 'low' : pred.fire.risk.toLowerCase() === 'warning' ? 'medium' : 'high'}">
+                                ${(pred.fire.probability * 100).toFixed(0)}%
+                            </span>
+                        </div>
+                        <div class="risk-item" style="border-bottom: none;">
+                            <span class="risk-label">🛡️ Safety:</span>
+                            <span class="risk-value ${pred.region_safety === 'DANGER' ? 'danger' : pred.region_safety === 'CAUTION' ? 'warning' : 'low'}">
+                                ${pred.region_safety}
+                            </span>
+                        </div>
+                        ${pred.fire.risk !== 'NO' ? `
+                            <div class="fire-direction">
+                                <div class="fire-direction-label">Fire Direction:</div>
+                                <div class="fire-direction-arrow">→ ${pred.fire.spread_direction}</div>
+                            </div>
+                        ` : ''}
+                    </div>
+                `;
+
+                nodesList.appendChild(nodeDiv);
+            }
+
+            // Update status cards
+            document.getElementById('safe-count').textContent = safeCount;
+            document.getElementById('caution-count').textContent = cautionCount;
+            document.getElementById('danger-count').textContent = dangerCount;
+            document.getElementById('active-nodes').textContent = Object.keys(predictions).length;
+
+            // Update timestamp
+            document.getElementById('last-update').textContent = new Date().toLocaleTimeString();
+        }
+
+        function updateLegend(predictions) {
+            // Update legend if needed
+        }
+
+        function selectNode(nodeId) {
+            if (nodeMarkers[nodeId]) {
+                const marker = nodeMarkers[nodeId];
+                map.setView(marker.getLatLng(), 10);
+                marker.openPopup();
+            }
+        }
+
+        // ═══════════════════════════════════════════════════════════════
+        // MAP CONTROLS
+        // ═══════════════════════════════════════════════════════════════
+
+        function zoomToAll() {
+            if (Object.keys(nodeMarkers).length === 0) {
+                alert("No nodes to zoom to. Waiting for data...");
+                return;
+            }
+            const group = new L.featureGroup(Object.values(nodeMarkers));
+            map.fitBounds(group.getBounds().pad(0.1));
+        }
+
+        function toggleHeatmap() {
+            heatmapVisible = !heatmapVisible;
+            updateData();
+        }
+
+        function refreshData() {
+            updateData();
+        }
+
+        // ═══════════════════════════════════════════════════════════════
+        // INITIALIZATION
+        // ═══════════════════════════════════════════════════════════════
+
+        document.addEventListener('DOMContentLoaded', () => {
+            console.log("🚀 Dashboard initializing...");
+            console.log("API Base:", API_BASE);
+            initMap();
+        });
+    </script>
+</body>
+</html>
